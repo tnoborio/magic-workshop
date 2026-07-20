@@ -18,5 +18,15 @@ export async function loadConfig(rootDir) {
       /\/$/,
       "",
     ),
+    publishDir: path.resolve(
+      process.env.PUBLISH_DIR ||
+        fileConfig.publishDir ||
+        path.join(rootDir, "published"),
+    ),
+    publishBaseUrl: (
+      process.env.PUBLISH_BASE_URL ||
+      fileConfig.publishBaseUrl ||
+      ""
+    ).replace(/\/$/, ""),
   };
 }

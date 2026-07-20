@@ -34,3 +34,21 @@ test("creates and updates history entries", async () => {
     v: 1,
   });
 });
+
+test("records immutable publication metadata per team", async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "magic-store-"));
+  const store = new Store(dir);
+  await store.init();
+  const publication = {
+    id: "20260720-team1-v1-aabbccdd",
+    url: "https://works.sasara.io/20260720-team1-v1-aabbccdd/",
+  };
+  await store.addPublication("team1", publication);
+  assert.deepEqual((await store.getTeam("team1")).publications, [publication]);
+  assert.deepEqual(
+    JSON.parse(
+      await readFile(path.join(dir, "team1", "publications.json"), "utf8"),
+    ),
+    [publication],
+  );
+});

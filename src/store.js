@@ -53,16 +53,20 @@ export class Store {
       const historyPath = path.join(dir, "history.json");
       const history = await readJson(historyPath, null);
       if (!history) await atomicWrite(historyPath, "[]");
+      const publicationsPath = path.join(dir, "publications.json");
+      const publications = await readJson(publicationsPath, null);
+      if (!publications) await atomicWrite(publicationsPath, "[]");
     }
   }
   async getTeam(id) {
     const dir = this.teamDir(id);
-    const [meta, history] = await Promise.all([
+    const [meta, history, publications] = await Promise.all([
       readJson(path.join(dir, "meta.json"), null),
       readJson(path.join(dir, "history.json"), []),
+      readJson(path.join(dir, "publications.json"), []),
     ]);
     if (!meta) throw new Error("Team not initialized");
-    return { ...meta, history };
+    return { ...meta, history, publications };
   }
   async getState() {
     return {
@@ -108,6 +112,15 @@ export class Store {
       JSON.stringify(team.history, null, 2),
     );
     return entry;
+  }
+  async addPublication(id, publication) {
+    const team = await this.getTeam(id);
+    team.publications.push(publication);
+    await atomicWrite(
+      path.join(this.teamDir(id), "publications.json"),
+      JSON.stringify(team.publications, null, 2),
+    );
+    return publication;
   }
   async readCurrent(id) {
     try {
