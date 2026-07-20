@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Magic Workshop Console</title>
+    <link rel="stylesheet" href="/assets/console.css" />
+  </head>
+  <body>
+    <canvas id="stars"></canvas>
+    <main>
+      <header>
+        <h1>ことばは魔法。<small>先生コンソール</small></h1>
+        <div id="connection" class="status">● 接続中</div>
+      </header>
+      <section id="panes" class="panes" aria-label="チーム一覧"></section>
+      <section class="conversation">
+        <div class="log-title">
+          <h2>みんなの注文とAIの返事</h2>
+          <span>数字キー 1〜4 でチーム切替</span>
+        </div>
+        <div id="log" class="log" aria-live="polite"></div>
+        <form id="prompt-form" class="composer">
+          <div class="target">宛先 <strong id="target-name"></strong></div>
+          <textarea
+            id="prompt"
+            rows="2"
+            maxlength="4000"
+            placeholder="どんなアプリにする？（Ctrl / ⌘ + Enter で送信）"
+            required
+          ></textarea>
+          <label class="new-toggle"
+            ><input id="new-mode" type="checkbox" /> 最初から作り直す</label
+          >
+          <button id="send" type="submit">魔法をかける ✦</button>
+        </form>
+      </section>
+    </main>
+    <dialog id="qr-modal">
+      <button class="close" aria-label="閉じる">×</button>
+      <h2></h2>
+      <img alt="拡大QRコード" />
+      <p>スマホで読み取ってね</p>
+    </dialog>
+    <script type="module" src="/assets/console.js"></script>
+  </body>
+</html>
