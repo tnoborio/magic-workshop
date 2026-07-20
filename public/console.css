@@ -103,6 +103,25 @@ h1 small {
   cursor: pointer;
   font-size: 15px;
 }
+.saved-app,
+.publish-app {
+  padding: 7px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.saved-app {
+  background: #40377c;
+  color: #dcd5ff;
+}
+.publish-app {
+  background: var(--team);
+  color: #14113a;
+}
+.publish-app:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 .qr {
   width: 48px;
   height: 48px;
@@ -285,6 +304,46 @@ dialog img {
   background: transparent;
   color: #fff;
   font-size: 24px;
+}
+.publish-modal {
+  width: min(92vw, 560px);
+}
+.publish-modal .published-mark {
+  font-size: 42px;
+  color: var(--gold);
+  text-shadow: 0 0 24px var(--gold);
+}
+.publish-modal > p {
+  color: #d5cef3;
+}
+.publication-url {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #9de8ff;
+  margin: 14px 0;
+}
+.publish-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+.publish-actions .copy-url,
+.publish-actions .open-url {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.copy-url {
+  background: var(--gold);
+  color: #281f08;
+}
+.open-url {
+  background: #40377c;
+  color: #fff;
 }
 @media (max-width: 1100px) {
   main {

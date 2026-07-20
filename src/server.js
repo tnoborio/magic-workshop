@@ -7,6 +7,7 @@ import QRCode from "qrcode";
 import { loadConfig } from "./config.js";
 import { GENERATION_TIMEOUT_MS, isTeamId } from "./constants.js";
 import { createGenerator } from "./generators/index.js";
+import { PublicationStore, isPublicationId } from "./publications.js";
 import { Store } from "./store.js";
 
 const rootDir = path.resolve(
@@ -18,6 +19,9 @@ export async function createApp(options = {}) {
   const config = options.config || (await loadConfig(rootDir));
   const store = options.store || new Store(path.join(rootDir, "data"));
   await store.init();
+  const publications =
+    options.publications || new PublicationStore(config.publishDir);
+  await publications.init();
   const generator =
     options.generator ||
     createGenerator(config.generator, GENERATION_TIMEOUT_MS);
@@ -52,6 +56,10 @@ export async function createApp(options = {}) {
   };
   const publicBase = (request) =>
     config.publicUrl || `${request.protocol}://${request.get("host")}`;
+  const publicationUrl = (request, id) =>
+    config.publishBaseUrl
+      ? `${config.publishBaseUrl}/${id}/`
+      : `${publicBase(request)}/published/${id}/`;
   const authorized = (request) =>
     !config.consoleToken ||
     request.query.token === config.consoleToken ||
@@ -65,6 +73,26 @@ export async function createApp(options = {}) {
   app.get("/console", protect, (_request, response) =>
     response.sendFile(path.join(rootDir, "public", "console.html")),
   );
+  app.get("/published/:publicationId", async (request, response, next) => {
+    try {
+      if (!isPublicationId(request.params.publicationId))
+        return response.sendStatus(404);
+      const html = await publications.readHtml(request.params.publicationId);
+      response
+        .set({
+          "Cache-Control": "public, max-age=31536000, immutable",
+          "Content-Security-Policy":
+            "default-src 'self' 'unsafe-inline' data: blob:; connect-src 'none'; object-src 'none'; frame-ancestors *",
+          "X-Content-Type-Options": "nosniff",
+          "X-Robots-Tag": "noindex, nofollow, noarchive",
+        })
+        .type("html")
+        .send(html);
+    } catch (error) {
+      if (error.code === "ENOENT") return response.sendStatus(404);
+      next(error);
+    }
+  });
   app.use("/api", protect);
 
   app.get("/api/state", async (_request, response, next) => {
@@ -122,6 +150,54 @@ export async function createApp(options = {}) {
       next(error);
     }
   });
+  app.post("/api/teams/:id/publish", async (request, response, next) => {
+    try {
+      const id = request.params.id;
+      if (!isTeamId(id)) return response.sendStatus(404);
+      const team = await store.getTeam(id);
+      const html = await store.readCurrent(id);
+      if (!team.version || !html)
+        return response
+          .status(409)
+          .json({ error: "保存できる作品がまだありません" });
+      const snapshot = await publications.publish({ team, html });
+      const publication = {
+        ...snapshot,
+        url: publicationUrl(request, snapshot.id),
+      };
+      await store.addPublication(id, publication);
+      broadcastConsole("publication", { teamId: id, publication });
+      response.status(201).json(publication);
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.get(
+    "/api/teams/:id/publications/:publicationId/qr",
+    async (request, response, next) => {
+      try {
+        if (
+          !isTeamId(request.params.id) ||
+          !isPublicationId(request.params.publicationId)
+        )
+          return response.sendStatus(404);
+        const team = await store.getTeam(request.params.id);
+        const publication = team.publications.find(
+          (item) => item.id === request.params.publicationId,
+        );
+        if (!publication) return response.sendStatus(404);
+        const svg = await QRCode.toString(publication.url, {
+          type: "svg",
+          margin: 1,
+          width: 420,
+          color: { dark: "#14113a", light: "#ffffff" },
+        });
+        response.type("image/svg+xml").send(svg);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
   app.post("/api/teams/:id/generate", async (request, response, next) => {
     const id = request.params.id;
     try {

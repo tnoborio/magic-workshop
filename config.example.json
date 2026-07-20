@@ -1,5 +1,7 @@
 {
   "generator": "claude",
   "port": 3000,
-  "consoleToken": ""
+  "consoleToken": "",
+  "publishDir": "./published",
+  "publishBaseUrl": ""
 }

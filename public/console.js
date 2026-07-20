@@ -20,20 +20,22 @@ const form = document.querySelector("#prompt-form");
 const prompt = document.querySelector("#prompt");
 const send = document.querySelector("#send");
 const modal = document.querySelector("#qr-modal");
+const publishModal = document.querySelector("#publish-modal");
 const team = (id) => state.teams.find((item) => item.id === id);
 const qrUrl = (id) =>
   `/api/teams/${id}/qr${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+const publicationQrUrl = (teamId, publicationId) =>
+  `/api/teams/${teamId}/publications/${publicationId}/qr${token ? `?token=${encodeURIComponent(token)}` : ""}`;
 
 function renderPanes() {
   panes.innerHTML = state.teams
-    .map(
-      (
-        item,
-      ) => `<article class="pane ${item.id === state.active ? "active" : ""} ${state.busy.has(item.id) ? "busy" : ""}" data-id="${item.id}" style="--team:${item.color}">
-    <div class="pane-head"><div class="team-name">${escapeHtml(item.emoji)} ${escapeHtml(item.name)}</div><button class="edit-name" title="チーム名を編集">✎</button><img class="qr" src="${qrUrl(item.id)}" alt="${escapeHtml(item.name)}のQRコード"></div>
+    .map((item) => {
+      const latest = item.publications?.at(-1);
+      return `<article class="pane ${item.id === state.active ? "active" : ""} ${state.busy.has(item.id) ? "busy" : ""}" data-id="${item.id}" style="--team:${item.color}">
+    <div class="pane-head"><div class="team-name">${escapeHtml(item.emoji)} ${escapeHtml(item.name)}</div><button class="edit-name" title="チーム名を編集">✎</button>${latest ? '<button class="saved-app" title="最後に保存した作品を表示">保存済</button>' : ""}<button class="publish-app" ${item.version ? "" : "disabled"} title="現在の作品を固定URLに保存">作品保存</button><img class="qr" src="${qrUrl(item.id)}" alt="${escapeAttr(item.name)}のQRコード"></div>
     <div class="preview-wrap"><div class="thinking"><span>✦ 考え中… ✦</span></div>${item.version ? `<iframe class="preview" sandbox="allow-scripts allow-same-origin" src="/t/${item.id}/app?v=${item.version}" title="${escapeHtml(item.name)}のプレビュー"></iframe>` : '<div class="empty">じゅんびちゅう…<br>最初の注文を待っています</div>'}</div>
-  </article>`,
-    )
+  </article>`;
+    })
     .join("");
   document.querySelector("#target-name").textContent =
     `${team(state.active).emoji} ${team(state.active).name}`;
@@ -61,6 +63,13 @@ function escapeHtml(value) {
   span.textContent = value;
   return span.innerHTML;
 }
+function escapeAttr(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
 function select(id) {
   state.active = id;
   renderPanes();
@@ -75,11 +84,49 @@ function updateEntry(teamId, entry) {
   renderPanes();
   renderLog();
 }
+function showPublication(publication) {
+  publishModal.querySelector("h2").textContent =
+    `${publication.emoji} ${publication.teamName} の作品`;
+  publishModal.querySelector("img").src = publicationQrUrl(
+    publication.teamId,
+    publication.id,
+  );
+  const link = publishModal.querySelector(".publication-url");
+  link.href = publication.url;
+  link.textContent = publication.url;
+  publishModal.querySelector(".open-url").href = publication.url;
+  publishModal.querySelector(".copy-url").textContent = "URLをコピー";
+  publishModal.showModal();
+}
+
 panes.addEventListener("click", async (event) => {
   const pane = event.target.closest(".pane");
   if (!pane) return;
   const id = pane.dataset.id;
   select(id);
+  if (event.target.closest(".publish-app")) {
+    const button = event.target.closest(".publish-app");
+    button.disabled = true;
+    button.textContent = "保存中…";
+    try {
+      const publication = await api(`/api/teams/${id}/publish`, {
+        method: "POST",
+      });
+      team(id).publications ||= [];
+      if (!team(id).publications.some((item) => item.id === publication.id))
+        team(id).publications.push(publication);
+      renderPanes();
+      showPublication(publication);
+    } catch (error) {
+      alert(error.message);
+      renderPanes();
+    }
+    return;
+  }
+  if (event.target.closest(".saved-app")) {
+    showPublication(team(id).publications.at(-1));
+    return;
+  }
   if (event.target.closest(".qr")) {
     modal.querySelector("h2").textContent =
       `${team(id).emoji} ${team(id).name}`;
@@ -156,6 +203,16 @@ log.addEventListener("click", (event) => {
   form.requestSubmit();
 });
 modal.querySelector(".close").onclick = () => modal.close();
+publishModal.querySelector(".close").onclick = () => publishModal.close();
+publishModal.querySelector(".copy-url").onclick = async (event) => {
+  const value = publishModal.querySelector(".publication-url").href;
+  try {
+    await navigator.clipboard.writeText(value);
+    event.currentTarget.textContent = "コピーしました ✓";
+  } catch {
+    window.prompt("このURLをコピーしてください", value);
+  }
+};
 
 const initial = await api("/api/state");
 state.teams = initial.teams;
@@ -191,6 +248,14 @@ events.addEventListener("team", (event) => {
 events.addEventListener("busy", (event) => {
   const data = JSON.parse(event.data);
   state.busy[data.busy ? "add" : "delete"](data.teamId);
+  renderPanes();
+});
+events.addEventListener("publication", (event) => {
+  const data = JSON.parse(event.data);
+  const item = team(data.teamId);
+  item.publications ||= [];
+  if (!item.publications.some((value) => value.id === data.publication.id))
+    item.publications.push(data.publication);
   renderPanes();
 });
 

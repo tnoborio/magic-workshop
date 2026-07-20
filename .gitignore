@@ -1,5 +1,6 @@
 node_modules/
 data/
+published/
 .env
 config.json
 npm-debug.log*
