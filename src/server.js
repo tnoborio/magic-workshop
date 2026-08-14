@@ -22,9 +22,19 @@ export async function createApp(options = {}) {
   const publications =
     options.publications || new PublicationStore(config.publishDir);
   await publications.init();
-  const generator =
-    options.generator ||
-    createGenerator(config.generator, GENERATION_TIMEOUT_MS);
+  const generators =
+    options.generators ||
+    (options.generator
+      ? { [config.generator]: options.generator }
+      : Object.fromEntries(
+          ["claude", "codex"].map((name) => [
+            name,
+            createGenerator(name, GENERATION_TIMEOUT_MS),
+          ]),
+        ));
+  const availableGenerators = Object.keys(generators);
+  if (!availableGenerators.includes(config.generator))
+    throw new Error(`未対応の生成バックエンドです: ${config.generator}`);
   const template = await readFile(
     path.join(rootDir, "prompt-template.md"),
     "utf8",
@@ -97,7 +107,14 @@ export async function createApp(options = {}) {
 
   app.get("/api/state", async (_request, response, next) => {
     try {
-      response.json({ ...(await store.getState()), busy: [...busy] });
+      response.json({
+        ...(await store.getState()),
+        busy: [...busy],
+        generators: {
+          default: config.generator,
+          available: availableGenerators,
+        },
+      });
     } catch (error) {
       next(error);
     }
@@ -120,7 +137,7 @@ export async function createApp(options = {}) {
         `${publicBase(request)}/t/${request.params.id}/`,
         {
           type: "svg",
-          margin: 1,
+          margin: 2,
           width: 220,
           color: { dark: "#14113a", light: "#ffffff" },
         },
@@ -204,10 +221,20 @@ export async function createApp(options = {}) {
       if (!isTeamId(id)) return response.sendStatus(404);
       const prompt = String(request.body.prompt || "").trim();
       const mode = request.body.mode === "new" ? "new" : "edit";
+      const generatorName = String(
+        request.body.generator || config.generator,
+      ).trim();
+      const generator = Object.hasOwn(generators, generatorName)
+        ? generators[generatorName]
+        : null;
       if (!prompt || prompt.length > 4000)
         return response
           .status(400)
           .json({ error: "1〜4000文字の注文を入力してください" });
+      if (!generator)
+        return response.status(400).json({
+          error: `生成AIは${availableGenerators.join(" または ")}を選んでください`,
+        });
       if (busy.has(id))
         return response.status(409).json({ error: "このチームは考え中です" });
       busy.add(id);
@@ -220,6 +247,7 @@ export async function createApp(options = {}) {
         timestamp: new Date().toISOString(),
         status: "generating",
         mode,
+        generator: generatorName,
       };
       await store.addHistory(id, entry);
       broadcastConsole("history", { teamId: id, entry });
@@ -248,7 +276,7 @@ export async function createApp(options = {}) {
         } catch (error) {
           const message =
             error.code === "ENOENT"
-              ? `生成CLI「${config.generator}」が見つかりません`
+              ? `生成CLI「${generatorName}」が見つかりません`
               : error.message;
           const failed = await store.updateHistory(id, requestId, {
             reply: message,

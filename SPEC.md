@@ -109,7 +109,8 @@ config.json            # 生成バックエンド設定(claude | codex)ほか
   (各CLIのサブスクリプション内で動かす):
   - `claude`(既定): `claude -p <prompt> --output-format text` 相当で単発実行
   - `codex`: `codex exec <prompt>` 相当で単発実行
-  - config.json(または環境変数 `GENERATOR=claude|codex`)で切り替え。
+  - 先生用コンソールから注文ごとに切り替え。config.json(または環境変数
+    `GENERATOR=claude|codex`)は画面の初期選択を決める。
     新バックエンドを足しやすいよう、バックエンドごとに1モジュールに分離
 - 出力の規約: バックエンドへの指示で
   「```html フェンスで完全なHTMLを出力し、その後に子ども向けの一文

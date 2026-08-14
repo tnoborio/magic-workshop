@@ -58,3 +58,74 @@ test("publishes the current team version and serves the fixed snapshot", async (
     "noindex, nofollow, noarchive",
   );
 });
+
+test("selects the generation backend for each request", async (t) => {
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), "magic-server-data-"));
+  const publishDir = await mkdtemp(
+    path.join(os.tmpdir(), "magic-server-published-"),
+  );
+  const store = new Store(dataDir);
+  const used = [];
+  const result = (name) => async () => {
+    used.push(name);
+    return {
+      html: `<!doctype html><html><body>${name}</body></html>`,
+      reply: `${name}で作成`,
+    };
+  };
+  const app = await createApp({
+    config: {
+      generator: "claude",
+      port: 0,
+      consoleToken: "",
+      publicUrl: "",
+      publishDir,
+      publishBaseUrl: "",
+    },
+    store,
+    generators: { claude: result("claude"), codex: result("codex") },
+  });
+  const server = await new Promise((resolve) => {
+    const value = app.listen(0, "127.0.0.1", () => resolve(value));
+  });
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const state = await (await fetch(`${base}/api/state`)).json();
+  assert.deepEqual(state.generators, {
+    default: "claude",
+    available: ["claude", "codex"],
+  });
+
+  const response = await fetch(`${base}/api/teams/team1/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt: "Codexで作って",
+      mode: "new",
+      generator: "codex",
+    }),
+  });
+  assert.equal(response.status, 202);
+  const { requestId } = await response.json();
+  let entry;
+  for (let attempt = 0; attempt < 20; attempt++) {
+    entry = (await store.getTeam("team1")).history.find(
+      (item) => item.id === requestId,
+    );
+    if (entry?.status !== "generating") break;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  assert.equal(entry.status, "completed");
+  assert.equal(entry.generator, "codex");
+  assert.deepEqual(used, ["codex"]);
+
+  for (const generator of ["unknown", "toString"]) {
+    const invalid = await fetch(`${base}/api/teams/team2/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "作って", generator }),
+    });
+    assert.equal(invalid.status, 400);
+  }
+});

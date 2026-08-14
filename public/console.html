@@ -29,6 +29,13 @@
             placeholder="どんなアプリにする？（Ctrl / ⌘ + Enter で送信）"
             required
           ></textarea>
+          <label class="generator-picker"
+            >生成AI
+            <select id="generator" aria-label="生成AI">
+              <option value="codex">Codex</option>
+              <option value="claude">Claude</option>
+            </select>
+          </label>
           <label class="new-toggle"
             ><input id="new-mode" type="checkbox" /> 最初から作り直す</label
           >

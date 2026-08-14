@@ -13,12 +13,18 @@ const api = (url, options = {}) =>
       throw new Error(body.error || `エラー (${response.status})`);
     return body;
   });
-const state = { teams: [], busy: new Set(), active: "team1" };
+const state = {
+  teams: [],
+  busy: new Set(),
+  active: "team1",
+  generators: { default: "claude", available: ["claude", "codex"] },
+};
 const panes = document.querySelector("#panes");
 const log = document.querySelector("#log");
 const form = document.querySelector("#prompt-form");
 const prompt = document.querySelector("#prompt");
 const send = document.querySelector("#send");
+const generatorSelect = document.querySelector("#generator");
 const modal = document.querySelector("#qr-modal");
 const publishModal = document.querySelector("#publish-modal");
 const team = (id) => state.teams.find((item) => item.id === id);
@@ -52,7 +58,7 @@ function renderLog() {
     allHistory()
       .map(
         (item) =>
-          `<article class="entry ${item.status}" style="--team:${item.team.color}" data-entry="${item.id}"><div class="entry-head">${escapeHtml(item.team.emoji)} ${escapeHtml(item.team.name)}</div><div class="prompt-text">「${escapeHtml(item.prompt)}」</div><div class="reply">${item.status === "generating" ? "✦ AIが考え中…" : item.status === "failed" ? `うまく魔法をかけられませんでした: ${escapeHtml(item.reply)} <button class="retry">再試行</button>` : `✨ ${escapeHtml(item.reply)}`}</div></article>`,
+          `<article class="entry ${item.status}" style="--team:${item.team.color}" data-entry="${item.id}"><div class="entry-head">${escapeHtml(item.team.emoji)} ${escapeHtml(item.team.name)}${item.generator ? `<span class="generator-badge">${item.generator === "codex" ? "Codex" : "Claude"}</span>` : ""}</div><div class="prompt-text">「${escapeHtml(item.prompt)}」</div><div class="reply">${item.status === "generating" ? "✦ AIが考え中…" : item.status === "failed" ? `うまく魔法をかけられませんでした: ${escapeHtml(item.reply)} <button class="retry">再試行</button>` : `✨ ${escapeHtml(item.reply)}`}</div></article>`,
       )
       .join("") ||
     '<div class="empty-log">注文を送ると、ここにみんなのやり取りが流れます。</div>';
@@ -169,6 +175,7 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify({
         prompt: text,
         mode: document.querySelector("#new-mode").checked ? "new" : "edit",
+        generator: generatorSelect.value,
       }),
     });
     prompt.value = "";
@@ -217,6 +224,16 @@ publishModal.querySelector(".copy-url").onclick = async (event) => {
 const initial = await api("/api/state");
 state.teams = initial.teams;
 state.busy = new Set(initial.busy);
+state.generators = initial.generators;
+const savedGenerator = localStorage.getItem("magic-workshop-generator");
+for (const option of generatorSelect.options)
+  option.disabled = !state.generators.available.includes(option.value);
+generatorSelect.value = state.generators.available.includes(savedGenerator)
+  ? savedGenerator
+  : state.generators.default;
+generatorSelect.addEventListener("change", () =>
+  localStorage.setItem("magic-workshop-generator", generatorSelect.value),
+);
 renderPanes();
 renderLog();
 const events = new EventSource(

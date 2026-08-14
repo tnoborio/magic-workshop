@@ -13,7 +13,9 @@ npm start
 
 先生用画面は `http://localhost:3000/console`、生徒用画面は `/t/team1/` 〜 `/t/team4/` です。
 
-`config.json` で生成CLIとポートを設定できます。環境変数が優先されます。
+先生用コンソールの「生成AI」で、注文ごとにClaudeとCodexを切り替えられます。
+最後に選んだAIはブラウザに保存されます。`config.json` では初期選択とポートを
+設定でき、環境変数が優先されます。
 
 - `GENERATOR=claude|codex`
 - `PORT=3000`

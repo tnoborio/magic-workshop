@@ -232,7 +232,7 @@ h1 small {
 }
 .composer {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
@@ -280,6 +280,31 @@ button {
 .new-toggle {
   font-size: 13px;
   white-space: nowrap;
+}
+.generator-picker {
+  display: grid;
+  gap: 4px;
+  color: #d8d2ff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.generator-picker select {
+  min-width: 92px;
+  border: 1px solid #665ca8;
+  border-radius: 8px;
+  padding: 8px 28px 8px 9px;
+  background: #2b255f;
+  color: #fff;
+  font: inherit;
+}
+.generator-badge {
+  margin-left: 8px;
+  border: 1px solid #665ca8;
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: #d8d2ff;
+  font-size: 11px;
 }
 dialog {
   border: 2px solid var(--gold);
@@ -360,6 +385,7 @@ dialog img {
     grid-template-columns: 1fr auto;
   }
   .target,
+  .generator-picker,
   .new-toggle {
     grid-column: auto;
   }
